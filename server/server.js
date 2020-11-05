@@ -4,6 +4,9 @@ var express = require('express');
 var app = express();
 const { port } = require('./config');
 const { apiKey } = require('./config');
+const cors = require("cors");
+
+app.use(cors());
 
 async function getBlockForTime(timestamp){
   const URL = `https://api.etherscan.io/api?module=block&action=getblocknobytime&timestamp=${timestamp}&closest=before&apikey=${apiKey}`;
@@ -35,6 +38,45 @@ async function getBlocksforEachTime(startTime, endTime) {
 	const startblock = Number(await getBlockForTime(startTime));
 	const endblock = Number(await getBlockForTime(endTime));
 	return [startblock, endblock]
+}
+
+async function getTranscation(startTime, endTime) {
+  s = moment(startTime.valueOf().toString()).format('MM/DD/YYYY h:mm a');
+  e = moment(endTime.valueOf().toString()).format('MM/DD/YYYY h:mm a');
+  s = moment(s, 'MM/DD/YYYY h:mm a').unix();
+  e = moment(e, 'MM/DD/YYYY h:mm a').unix();
+  console.log(s);
+  console.log(e);
+  console.log("Errrr");
+	var [startblock, endblock] = await getBlocksforEachTime(s, e);
+	console.log(startblock);
+	console.log(endblock);
+
+  var trx = [];
+  
+  if (startblock == endblock) {
+    let txsRange = await getTransactions(startblock, endblock);
+		console.log("The tx length");
+		console.log(txsRange.length);
+		trx = trx.concat(txsRange);
+  }
+
+	while(startblock < endblock) {
+		let endRange = startblock + 15000;
+		let txsRange = await getTransactions(startblock, endRange);
+		console.log("The tx length");
+		console.log(txsRange.length);
+		trx = trx.concat(txsRange);
+		startblock = endRange + 1;
+  }
+  
+  
+
+	console.log(trx[0]);
+	console.log(trx.length);
+	startTime = moment.unix(startTime).format('dddd, MMMM Do, YYYY h:mm:ss A');
+	endTime = moment.unix(endTime).format('dddd, MMMM Do, YYYY h:mm:ss A');
+	return [trx, startblock, endblock, startTime, endTime];
 }
 
 async function getTotalTranscationData() {
@@ -160,7 +202,8 @@ async function getTradingVolume(trx, trxLength) {
 
 
 app.get('/', async function (req, res) {
-  res.send('Hello World!');
+  console.log("bang");
+  res.send({message: 'Hello World!!!!!!!!'});
 });
 
 app.get('/gas-usage', async function (req, res) {
@@ -260,6 +303,20 @@ app.get('/trading-volume', async function (req, res) {
   res.write(((passes / trxLength) * 100).toString() + "%");
 
   res.end();
+});
+
+app.get('/getTransactions', async function (req, res) {
+  console.log(req.query);
+  const [startTime, endTime] = [req.query.start, req.query.end];
+  
+  var [trx, startblock, endblock, startT, endT] = await getTranscation(startTime, endTime);
+  const trxLength = trx.length;
+  console.log(trx[1]);
+  console.log(trxLength);
+
+
+  //res.send({transactions: JSON.stringify(trx[1])});
+  res.send({transactions: trx});
 });
 
 
