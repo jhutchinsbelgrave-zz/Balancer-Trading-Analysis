@@ -2,9 +2,8 @@ var moment = require('moment');
 const axios = require('axios').default;
 var express = require('express');
 var app = express();
-require('dotenv').config();
-
-const apiKey = 'KIM6C84C5RXD72529SW9PNXH8J16ITBW2V';
+const { port } = require('./config');
+const { apiKey } = require('./config');
 
 async function getBlockForTime(timestamp){
   const URL = `https://api.etherscan.io/api?module=block&action=getblocknobytime&timestamp=${timestamp}&closest=before&apikey=${apiKey}`;
@@ -265,7 +264,7 @@ app.get('/trading-volume', async function (req, res) {
 
 
 
-app.listen(3000, function () {
-  console.log('Example app listening on port 3000!');
+app.listen(port, function () {
+  console.log(`Example app listening on port ${port}!`);
 });
 
