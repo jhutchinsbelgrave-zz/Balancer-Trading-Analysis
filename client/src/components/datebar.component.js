@@ -3,6 +3,7 @@ import StartDate from './startdate.component';
 import EndDate from './enddate.component';
 import Axios from "axios";
 import Chart from "react-apexcharts";
+import CanvasJS from 'canvasjs';
 
 export default class DateBar extends Component {
     constructor() {
@@ -35,43 +36,6 @@ export default class DateBar extends Component {
             console.log(priceStats[0]);
             console.log('we hit');
             console.log(transactions);
-            this.setState({series: [{ name: "series-1", data : usageStats[0]}]});
-            this.setState({options: {
-                chart: {
-                  type: 'area',
-                  height: 350,
-                  zoom: {
-                    enabled: false
-                  }
-                },
-                dataLabels: {
-                  enabled: false
-                },
-                stroke: {
-                  curve: 'straight'
-                },
-                labels: time,
-                xaxis: {
-                    type: 'datetime',
-                    min: start.getTime(),
-                    max: new Date().getTime(),
-                    tickAmount: 6,
-                  },
-                  tooltip: {
-                    x: {
-                      format: 'dd MMM yyyy'
-                    }
-                  },
-                yaxis: {
-                  opposite: true
-                },
-                legend: {
-                  horizontalAlign: 'left'
-                }
-            }});
-            document.getElementById("chart").isHidden = false;
-            
-
         }
     }
 
