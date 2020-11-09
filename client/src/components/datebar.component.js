@@ -1,9 +1,8 @@
 import React, { Component } from 'react';
 import StartDate from './startdate.component';
 import EndDate from './enddate.component';
-import Axios from "axios";
-import Chart from "react-apexcharts";
-import CanvasJS from 'canvasjs';
+import Axios from "axios"; 
+const Chart = require('chart.js');
 
 export default class DateBar extends Component {
     constructor() {
@@ -30,12 +29,14 @@ export default class DateBar extends Component {
             const transactions = await this.getTransactions(start, end);
             console.log("The transactions");
             console.log(transactions);
-            const [time, usageStats, priceStats] = await this.getOrganizedTransactions(transactions);
-            console.log(time);
+            const [usageStats, priceStats] = await this.getOrganizedTransactions(transactions);
             console.log(usageStats[0]);
             console.log(priceStats[0]);
             console.log('we hit');
             console.log(transactions);
+            var unit = 'hour';
+            await this.makeChart(usageStats[0], 'gasUsageChart', 'Gas Usage', 'line', unit);
+            await this.makeChart(priceStats[0], 'gasPriceChart', 'Gas Price', 'line', unit);
         }
     }
 
@@ -73,7 +74,6 @@ export default class DateBar extends Component {
 
         var gasUsage = [];
         var gasPrices = [];
-        var times = [];
 
         for (var idx = 0; idx < trxLength; idx++) {
             const tx = trx[idx];
@@ -82,9 +82,15 @@ export default class DateBar extends Component {
             const gasPr = Number(tx.gasPrice);
             
             const theTime = time * 1000;
-            times.push(theTime);
-            gasUsage.push(gas);
-            gasPrices.push(gasPr);
+            
+            gasUsage.push({
+                x: theTime,
+                y: gas
+            });
+            gasPrices.push({
+                x: theTime,
+                y: gasPr
+            });
 
 
             if (gas > max) {
@@ -119,13 +125,37 @@ export default class DateBar extends Component {
 
         var usageStats = [gasUsage, max, min, avg];
         var priceStats = [gasPrices, maxP, minP, avgP];
-        return [times, usageStats, priceStats];
+        return [usageStats, priceStats];
     }
 
-    async makeChart(trx) {
+    async makeChart(data, id, label, graphType, unit) {
         
-        //var chart = new ApexCharts(document.querySelector("#chart"), options);
-        //chart.render();
+        var ctx = document.getElementById(id);
+        new Chart(ctx, {
+            type: graphType,
+            data: {
+                datasets: [{
+                    label: label,
+                    data: data
+                }]
+            },
+            options: {
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }],
+                    xAxes: [{
+                        type: 'time',
+                        time: {
+                            unit: unit
+                        },
+                        distribution: 'linear'
+                    }]
+                }
+            }
+        });
     }
 
     render() {
@@ -138,14 +168,8 @@ export default class DateBar extends Component {
                     Submit
                 </button>
             </div>
-            <div id="chart" isHidden="true">
-                <Chart
-                options={this.state.options}
-                series={this.state.series}
-                type="line"
-                width="500"
-                />
-            </div>
+            <canvas id="gasUsageChart" width="400" height="100"></canvas>
+            <canvas id="gasPriceChart" width="400" height="100"></canvas>
         </div>
     );
     }
