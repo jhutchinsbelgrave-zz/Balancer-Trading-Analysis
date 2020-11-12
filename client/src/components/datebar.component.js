@@ -21,6 +21,9 @@ export default class DateBar extends Component {
       this.getOrganizedTransactions = this.getOrganizedTransactions.bind(this);
       this.makeChart = this.makeChart.bind(this);
       this.makeStats = this.makeStats.bind(this);
+      this.displayTradingVolume = this.displayTradingVolume.bind(this);
+      this.makeTradingVolChart = this.makeTradingVolChart.bind(this);
+
       this.state = {
         series: [],
         options: {}
@@ -34,21 +37,16 @@ export default class DateBar extends Component {
         } else {
             const start = new Date(times[0].value);
             const end = new Date(times[1].value);
-            console.log(start);
-            console.log(end)
             const transactions = await this.getTransactions(start, end);
-            console.log("The transactions");
-            console.log(transactions);
+            console.log(transactions[0]);
             const [usageStats, priceStats] = await this.getOrganizedTransactions(transactions);
-            console.log(usageStats[0]);
-            console.log(priceStats[0]);
-            console.log('we hit');
-            console.log(transactions);
             var unit = 'hour';
+
             await this.makeChart(usageStats[0], 'gasUsageChart', 'Gas Usage', 'line', unit);
-            await this.makeStats(["maxGas", usageStats[1]], ["minGas", usageStats[2]], ["avgGas", usageStats[3]])
+            await this.makeStats(["maxGas", usageStats[1]], ["minGas", usageStats[2]], ["avgGas", usageStats[3]]);
             await this.makeChart(priceStats[0], 'gasPriceChart', 'Gas Price', 'line', unit);
-            await this.makeStats(["maxGasPr", priceStats[1]], ["minGasPr", priceStats[2]], ["avgGasPr", priceStats[3]])
+            await this.makeStats(["maxGasPr", priceStats[1]], ["minGasPr", priceStats[2]], ["avgGasPr", priceStats[3]]);
+            const j = await this.displayTradingVolume(transactions);
         }
     }
 
@@ -141,19 +139,77 @@ export default class DateBar extends Component {
     }
 
     async makeStats(max, min, avg) {
-        
         var elem = document.getElementById(max[0]);
         elem.innerText = max[1];
         elem = document.getElementById(min[0]);
         elem.innerText = min[1];
         elem = document.getElementById(avg[0]);
         elem.innerText = avg[1];
-
-        
     }
 
     async makeChart(data, id, label, graphType, unit) {
-        
+        var ctx = document.getElementById(id);
+        new Chart(ctx, {
+            type: graphType,
+            data: {
+                datasets: [{
+                    label: label,
+                    data: data
+                }]
+            },
+            options: {
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }],
+                    xAxes: [{
+                        type: 'time',
+                        time: {
+                            unit: unit
+                        },
+                        distribution: 'linear'
+                    }]
+                }
+            }
+        });
+    }
+
+    async displayTradingVolume(trx) {
+        var tradeVol = {}
+        const timeFactor = (1000 * 60 * 60 * 24);
+        console.log("Starting trade Count");
+        for (var idx = 0; idx < trx.length; idx++) {
+            const tx = trx[idx]
+
+            let day = new Date(Number(tx.timeStamp) * 1000);
+            day = Math.floor(day.getTime()/timeFactor);
+            console.log(day);
+            if (day in tradeVol) {
+                tradeVol[day] = tradeVol[day] + 1;
+            } else {
+                tradeVol[day] = 1;
+            }
+        }
+
+        console.log("Starting data");
+        var data = []
+        Object.entries(tradeVol).forEach(([key, value]) => {
+            data.push({
+                x: key * timeFactor, 
+                y: value
+            })
+        });
+
+        console.log(data);
+
+        const unit = 'day';
+        const label = 'Trading Volume';
+        await this.makeTradingVolChart('tradingVol', 'bar', label, data, unit)
+    }
+
+    async makeTradingVolChart(id, graphType, label, data, unit) {
         var ctx = document.getElementById(id);
         new Chart(ctx, {
             type: graphType,
@@ -200,6 +256,10 @@ export default class DateBar extends Component {
             <div>
                 <canvas id="gasPriceChart" width="400" height="100"></canvas>
                 <GasPriceStatsBar/>
+            </div>
+
+            <div>
+                <canvas id="tradingVol" width="400" height="100"></canvas>
             </div>
             
         </div>
