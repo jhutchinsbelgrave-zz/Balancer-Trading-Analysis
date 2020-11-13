@@ -4,7 +4,10 @@ import EndDate from './enddate.component';
 import GasUsageStatsBar from './gasusagestatsbar.component';
 import GasPriceStatsBar from './gaspricestatsbar.component';
 import Axios from "axios"; 
+import { Interface } from '@ethersproject/abi';
 const Chart = require('chart.js');
+
+const timeFactor = (1000 * 60 * 60 * 24);
 
 function formatNumber(num) {
     const n = Math.abs(num); // Change to positive
@@ -23,6 +26,10 @@ export default class DateBar extends Component {
       this.makeStats = this.makeStats.bind(this);
       this.displayTradingVolume = this.displayTradingVolume.bind(this);
       this.makeTradingVolChart = this.makeTradingVolChart.bind(this);
+      this.getSwapData = this.getSwapData.bind(this);
+      this.accessSwapData = this.accessSwapData.bind(this);
+      this.makeFailuresChart = this.makeFailuresChart.bind(this);
+      this.displayFailures = this.displayFailures.bind(this);
 
       this.state = {
         series: [],
@@ -47,6 +54,8 @@ export default class DateBar extends Component {
             await this.makeChart(priceStats[0], 'gasPriceChart', 'Gas Price', 'line', unit);
             await this.makeStats(["maxGasPr", priceStats[1]], ["minGasPr", priceStats[2]], ["avgGasPr", priceStats[3]]);
             const j = await this.displayTradingVolume(transactions);
+            //await this.getSwapData(transactions);
+            await this.displayFailures(transactions);
         }
     }
 
@@ -178,7 +187,6 @@ export default class DateBar extends Component {
 
     async displayTradingVolume(trx) {
         var tradeVol = {}
-        const timeFactor = (1000 * 60 * 60 * 24);
         console.log("Starting trade Count");
         for (var idx = 0; idx < trx.length; idx++) {
             const tx = trx[idx]
@@ -238,6 +246,132 @@ export default class DateBar extends Component {
         });
     }
 
+    async getSwapData(trx) {
+        const sample = trx[0];
+        this.accessSwapData(sample.input)
+
+    }
+
+    accessSwapData(input) {
+        const proxyArtifact = require('./../abi/ExchangeProxy.json'); // See below
+        console.log(proxyArtifact);
+
+        const iface = new Interface(proxyArtifact.abi);
+
+        let test = iface.parseTransaction({ data: input });
+        console.log(test);
+        console.log(test.args.swapSequences);
+        console.log(test.functionFragment.name);
+    }
+
+    async displayFailures(trx) {
+        var times = {};
+        var failures = 0;
+        var passes = 0;
+        
+        for (var idx = 0; idx < trx.length; idx++) {
+            const tx = trx[idx]
+
+            var contractExec = Number(tx.isError);
+            var transactionExec = Number(tx.txreceipt_status);
+
+            let contractExecFail = false;
+            let transactionExecFail = false;
+
+            if (contractExec == 1) {
+                contractExecFail = true;
+            } else if (transactionExec == 0) {
+                transactionExecFail = true;
+            }
+
+            if(contractExec == 0 && transactionExec == 1){
+                passes++;
+            } else {
+                failures++;
+            }
+
+            let day = new Date(Number(tx.timeStamp) * 1000);
+            day = Math.floor(day.getTime()/timeFactor);
+            console.log(day);
+
+            //Check if day is present
+            if (!(day in times)) {
+                times[day] = {
+                    'contract' : 0,
+                    'transaction' : 0
+                }
+            } 
+            
+            if (contractExecFail) {
+                times[day]['contract'] = times[day]['contract'] + 1;
+            } else if (transactionExecFail) {
+                times[day]['transaction'] = times[day]['transaction'] + 1;
+            }
+
+            times[day] = times[day];
+        }
+
+        var d = []
+        var cFails = []
+        var tFails = []
+
+        Object.entries(times).forEach(([key, value]) => {
+            d.push(key * timeFactor);
+            Object.entries(value).forEach(([k, v]) => {
+                if (k == 'contract') {
+                    cFails.push(v);
+                } else {
+                    tFails.push(v);
+                }
+            })
+        });
+
+        const id = "failures";
+        const labels = ['Contract Execution Error', 'Transaction Receipt Error'];
+        const data = [d, cFails, tFails];
+        const unit = 'day';
+        this.makeFailuresChart(id, 'bar', labels, data, unit);
+    }
+
+    makeFailuresChart(id, graphType, labels, data, unit) {
+        var ctx = document.getElementById(id);
+        new Chart(ctx, {
+            type: graphType,
+            data: {
+                labels: data[0],
+                datasets: [{
+                    type: 'bar',
+                    label: labels[0],
+                    data: data[1],
+                    backgroundColor: "red"
+                }, {   
+                    type: 'bar',
+                    label: labels[1],
+                    data: data[2],
+                    backgroundColor: "blue"
+                }]
+            },
+            options: {
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        },
+                        stacked: true
+                    }],
+                    xAxes: [{
+                        type: 'time',
+                        time: {
+                            unit: unit
+                        },
+                        distribution: 'linear',
+                        stacked: true
+                    }]
+                }
+            }
+        });
+    }
+
     render() {
     return (
         <div>
@@ -262,6 +396,9 @@ export default class DateBar extends Component {
                 <canvas id="tradingVol" width="400" height="100"></canvas>
             </div>
             
+            <div>
+                <canvas id="failures" width="400" height="100"></canvas>
+            </div>
         </div>
     );
     }
