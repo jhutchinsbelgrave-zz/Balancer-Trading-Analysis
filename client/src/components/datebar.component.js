@@ -54,7 +54,7 @@ export default class DateBar extends Component {
             await this.makeChart(priceStats[0], 'gasPriceChart', 'Gas Price', 'line', unit);
             await this.makeStats(["maxGasPr", priceStats[1]], ["minGasPr", priceStats[2]], ["avgGasPr", priceStats[3]]);
             const j = await this.displayTradingVolume(transactions);
-            //await this.getSwapData(transactions);
+            await this.getSwapData(transactions);
             await this.displayFailures(transactions);
         }
     }
@@ -253,7 +253,9 @@ export default class DateBar extends Component {
     }
 
     accessSwapData(input) {
+        setTimeout(alert('Wait'), 6000);
         const proxyArtifact = require('./../abi/ExchangeProxy.json'); // See below
+        console.log('starting proxy');
         console.log(proxyArtifact);
 
         const iface = new Interface(proxyArtifact.abi);
